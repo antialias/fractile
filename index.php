@@ -445,7 +445,7 @@ function do_work(job_description) {
 
 volunteer_loop = function () {
 	jQuery.get(
-		"dist_mandel.php",
+		"{$_SERVER['REQUEST_URI']}",
 		"action=polling_for_work",
 		function (data) {
 
@@ -458,7 +458,7 @@ volunteer_loop = function () {
 					computed_data = do_work(job_description);
 					
 					jQuery.post(
-						"dist_mandel.php?action=submit_work",
+						"{$_SERVER['REQUEST_URI']}?action=submit_work",
 						{
 							img_data: Base64.encode(computed_data),
 							job_description:  JSON.stringify(job_description)
@@ -502,7 +502,7 @@ sync_loop = function() {
 
 		var request_timestamp = current_timestamp;
 		jQuery.get(
-			"dist_mandel.php",
+			"{$_SERVER['REQUEST_URI']}",
 			"action=request_work&h="+hind+"&v="+vind+"&job_description="+escape(JSON.stringify(job_description)),
 			function(data) {
 				if(request_timestamp.getTime() == current_timestamp.getTime()) {

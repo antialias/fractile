@@ -80,38 +80,49 @@ SQL;
 	echo true;;
 
 break;
-case 'request_work':
+case 'request_work': // a client is requesting work. if the results exist in the cache, return them, otherwise, put the job on the work queue
 
 	$job_hash = md5($_REQUEST['job_description']);
 	$job_path = "job_cache/$job_hash";
 
-	if(file_exists($job_path)) {
+	if(file_exists($job_path)) { // if the results are already on the server's cache, then just return them
 		echo json_encode(array("job_description" => $_REQUEST['job_description'], "coords" => array($_REQUEST['h'], $_REQUEST['v']), "url" => file_get_contents($job_path)));
-	} else {
+	} else { // otherwise, put the job in the work queue
+            $job_description = addslashes($_REQUEST['job_description']);
 
-		$ready_users = <<<SQL
-		select * from job_list where current_job is null and last_polled < ($time + 10);
+            // if the job is associated with a node that has recently polled, bail
+            $sql = <<<SQL
+            select * from job_list where current_job = "$job_description" and last_polled < ($time + 10);
+SQL;
+            $r = mysql_query($sql);
+            if(mysql_fetch_row($r)) {
+                echo json_encode(false);
+                die();
+            }
+
+// find a node that is available for work and that has polled the server some time in the last 10 seconds
+            $ready_users = <<<SQL
+            select * from job_list where current_job is null and last_polled < ($time + 10);
 SQL;
 
-		$r = mysql_query($ready_users);
-		if(!$r)
-			die(mysql_error());
+            $r = mysql_query($ready_users);
+            if(!$r) // if the query is bad
+                    die(mysql_error());
 
-		// else put the work on the queue
-		while($client = mysql_fetch_assoc($r)) {
+            // assign the work to the first available client
+            if($client = mysql_fetch_assoc($r)) {
 
-			$job_description = addslashes($_REQUEST['job_description']);
-			$client_session_id = $client['session_id'];
-			$sql = <<<SQL
-			update job_list set current_job="$job_description" where session_id="$client_session_id";
+                    $client_session_id = $client['session_id'];
+                    $sql = <<<SQL
+                    update job_list set current_job="$job_description" where session_id="$client_session_id";
 SQL;
 
-			$ur = mysql_query($sql);
-			if(!$ur)
-				die(mysql_error());
-		}
+                    $ur = mysql_query($sql);
+                    if(!$ur)
+                        die(mysql_error());
+            }
 
-		echo json_encode(false);
+            echo json_encode(false);
 	}
 	die();
 break;
